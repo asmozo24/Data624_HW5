@@ -1,0 +1,508 @@
+---
+title: "Data624_HW5"
+author: "Alexis Mekueko"
+date: "10/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r load-packages, results='hide',warning=FALSE, message=FALSE, echo=FALSE}
+
+##library(tidyverse) #loading all library needed for this assignment
+#remove.packages(tidyverse)
+#library(openintro)
+#library(lahman) #database for baseball
+library(caret)
+library(knitr)
+#library(markdown)
+#library(rmarkdown)
+library(dplyr)
+#library(tidyr)
+#library(naniar)
+#library(reshape)
+library(ggplot2)
+#library(qqplotr)
+library(stats)
+library(statsr)
+library(GGally)
+library(pdftools)
+library(correlation)
+
+library(car)
+#library(VIF)
+#library(MASS)
+#library(AICcmodavg)
+#library(gridExtra)
+#library(ggpubr)
+#library(glmulti)
+#install.packages("datarobot", dependencies = TRUE)
+library(datarobot)
+#install.packages("fpp3", dependencies = TRUE)
+library(fpp3)
+#install.packages("fpp2", dependencies = TRUE)
+library(fpp2)
+#install.packages("lubridate", dependencies = TRUE)
+library(lubridate)
+#install.packages("tsibble", dependencies = TRUE)
+library(tsibble)
+library(tsibbledata)
+#install.packages("USgas", dependencies = TRUE)
+#install.packages('Rcpp')
+library(Rcpp)
+#update.packages(Rcpp)
+library(USgas)
+library(MASS)
+library(forecast)
+set.seed(34332)
+
+```
+
+[Github Link](https://github.com/asmozo24/Data624_HW5)
+[Web Link](https://rpubs.com/amekueko/814927)
+
+## Exercise 1. Consider the the number of pigs slaughtered in Victoria, available in the aus_livestock dataset.
+
+a-Use the ETS() function to estimate the equivalent model for simple exponential smoothing. Find the optimal values of α and ℓ_0 , and generate forecasts for the next four months.
+
+```{r mychunck1, fig.width = 10, fig.height = 10}
+
+#head(aus_livestock)
+View(aus_livestock)
+#view(aus_livestock$Animal [18000:18100]) # %>% filter(Animal =="Lambs"))
+min(aus_livestock$Month)
+aus3 <- aus_livestock %>%
+                      filter(Animal == "Pigs", State == "Victoria")
+
+fit <- aus3$Count %>%
+       ses(h=4)
+fit$model
+autoplot(fit)
+
+```
+
+Based on the Simple Exponential Smoothing (ses) call, α = 0.322,     l = 100646.6098 
+
+b-Compute a 95% prediction interval for the first forecast using ^y±1.96s where s is the standard deviation of the residuals. Compare your interval with the interval produced by R.
+
+```{r mychunck2, fig.width = 10, fig.height = 10}
+
+predi_low <- fit$mean - 1.96*(sd(fit$residuals)) #76871.23 
+predi_high <- fit$mean + 1.96*(sd(fit$residuals)) #113502.3 
+predi_high; predi_low
+fit #76855.01....113518.5 
+
+```
+
+Predicted interval = [76871.23, 113502.3]
+Interval produced by R = [76855.01, 113518.5]
+if we round these intervals, there is no delta...we fall into the same confidence interval. But if we consider the entire value, the interval produced by R is more narrowed than we obtained with predicted interval. 
+
+## Exercise 5. Data set global_economy contains the annual Exports from many countries. Select one country to analyse.
+a- Plot the Exports series and discuss the main features of the data.
+```{r mychunck3, fig.width = 10, fig.height = 10}
+??global_economy
+aus4 <- global_economy %>%
+               filter(Country == "Australia")#%>%
+               #model(RW(Population ~ drift())) %>%
+               #forecast(h = "5 years") %>%
+#view(aus4)              
+                                                                                     #autoplot(global_economy) + labs(y = "Number of People", title = "Population of Australia from 1960 to 2025")
+
+global_economy %>%
+                filter(Country == "Australia") %>%
+                                               autoplot(Exports) + 
+                                               labs(y = "Percentage of Export relatively to GDP", title = "Exports of goods and services (% of GDP). of Australia from 1960 to 2020")
+
+aus4a <- global_economy %>%
+                filter(Country == "Australia") %>%
+                #mutate(GDP = round(GDP,5))%>%
+                mutate(Exports_R = round(((GDP*Exports)/100), 5))%>%
+                dplyr::select(Year, GDP, Exports_R)
+#view(aus4a)
+#plot.ts(aus4a, plot.type = "single")
+aus4a1 <- aus4a %>%
+          gather(key = "variable", value = "value", -Year)
+
+ggplot(aus4a1, aes(x = Year, y = value)) +
+  geom_line(aes(color = variable)) +
+  scale_color_manual(values = c("darkred", "steelblue"))+labs(y = "Percentage of Export relatively to GDP", title = "Exports of goods and services (% of GDP). of Australia from 1960 to 2020")
+
+#ts.plot(aus4a,gpars= list(col=rainbow(3))) #, main = "Exports of goods and services (% of GDP). of Australia from 1960 to 2020", xlab = "Years", las=3, ylab = "Percentage of Export relatively to GDP")
+#legend("right", names(aus4a[2:3]), col=2:3, lty=1)
+#title("Exports of goods and services (% of GDP). of Australia from 1960 to 2020")
+#max(aus4$Year)
+
+
+```
+
+We chose the Australia data and we observed that in the long run the GDP increased proportionally to the exports. So, overall Australia did good from 1960 to 2017. In fact, around year of 2000-2012, Australia had a sudden peak in their GDP which is explained by the rise of their exports. There were few recessions but didn't last long. Australia economy shows a fast recovery.  
+
+b- Use an ETS(A,N,N) model to forecast the series, and plot the forecasts.
+```{r mychunck4, fig.width = 10, fig.height = 10}
+fit <- aus4 %>%
+  model(ETS(Exports ~ error("A") + trend("N") + season("N")))
+fc <- fit %>%
+  forecast(h = 5)
+fc %>% 
+  autoplot(aus4)+labs(y = "Percentage of Export relatively to GDP", title = "Exports of goods and services (% of GDP). of Australia from 1960 to 2020")
+
+
+```
+
+c-Compute the RMSE values for the training data.
+
+```{r mychunck5, fig.width = 10, fig.height = 10}
+
+fit %>%
+  accuracy()
+
+
+```
+RMSE = 1.146794
+
+d-Compare the results to those from an ETS(A,A,N) model. (Remember that the trended model is using one more parameter than the simpler model.) Discuss the merits of the two forecasting methods for this data set.
+
+```{r mychunck6, fig.width = 20, fig.height = 10}
+
+fit1 <- aus4 %>%
+  model(ETS(Exports ~ error("A") + trend("A") + season("N")))
+fc1 <- fit1 %>%
+  forecast(h = 5)
+fc1 %>% 
+  autoplot(aus4)+labs(y = "Percentage of Export relatively to GDP", title = "Exports of goods and services (% of GDP). of Australia from 1960 to 2020")
+
+
+fit1 %>%
+  accuracy()
+
+```
+
+Well, the ETS(A,A,N)model shows an upward trend line compared to the ETS(A,N,N)model. 
+We think the ETS(A,A,N) model is the best.
+
+f - Calculate a 95% prediction interval for the first forecast for each model, using the RMSE values and assuming normal errors. Compare your intervals with those produced using R.
+```{r mychunck7, fig.width = 10, fig.height = 10}
+
+predi_low_ANN <- fc$.mean - 1.96*(1.146794) #18.35944
+predi_high_ANN <- fc$.mean + 1.96*(1.146794) #22.85488 
+predi_low_AAN <- fc1$.mean - 1.96*(1.116727) #19.19850 
+predi_high_AAN <- fc1$.mean + 1.96*(1.116727) #23.57607 
+
+#fc$Exports #N(21, 1.4)
+#fc1$Exports #N(21, 1.3)
+
+```
+
+Predicted interval ETS(ANN)model = [18.35944,22.85488]
+Interval produced by R = N(21, 1.4)
+
+Predicted interval ETS(AAN)model = [19.19850,23.57607]
+Interval produced by R = N(21, 1.3)
+
+## Exercise 6: Forecast the Chinese GDP from the global_economy data set using an ETS model. Experiment with the various options in the ETS() function to see how much the forecasts change with damped trend, or with a Box-Cox transformation. Try to develop an intuition of what each is doing to the forecasts.
+
+[Hint: use a relatively large value of h when forecasting, so you can clearly see the differences between the various options when plotting the forecasts.]
+ 
+```{r mychunck8, fig.width = 10, fig.height = 10}
+
+china <- global_economy %>%
+               filter(Country == "China")#%>%
+   
+china %>%
+      autoplot(GDP) + 
+      labs(y = "Gross domestic product (in $USD).", title = "Gross domestic product of China from 1960 to 2020")
+
+
+
+```
+
+
+China GDP shows an exponential growth from year 2000+. No wonder, China is the factory of the world.
+
+```{r mychunck9, fig.width = 10, fig.height = 10}
+#lambda1 <- BoxCox.lambda(china$GDP)
+#Box_cox = ETS (BoxCox(GDP, lambda1) ~ error("A") + trend("A") + season("N")),
+
+fit <- china %>%
+  #stretch_tsibble(.init = 10) %>%
+  model(
+    SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    Damped = ETS(GDP ~ error("A") + trend("Ad") +
+                   season("N"))
+  ) %>%
+  forecast(h = 23) #%>%  accuracy(china)
+
+fit %>%
+  autoplot(china)+ 
+      labs(y = "Gross domestic product (in $USD).", title = "Gross domestic product of China from 1960 to 2040")
+
+
+```
+
+As we can see, the Holt model shows a continuous exponential growth of China's GDP.
+
+## Exercise 7. Find an ETS model for the Gas data from aus_production and forecast the next few years. Why is multiplicative seasonality necessary here? Experiment with making the trend damped. Does it improve the forecasts?
+
+```{r mychunck10, fig.width = 10, fig.height = 10}
+
+??aus_production
+aus1 <- aus_production
+sum(is.na(aus1$Gas))
+# not good , need a fix...aus1 %>% filter(!is.na(Bricks))
+#aus2 <- aus1 %>% na.omit(aus1$Gas)
+#mydata = mydata[complete.cases(mydata), ]
+
+#aus1 %>% drop_na(Bricks)
+
+aus1 %>%
+  autoplot(Gas)+  labs(y = "Gas production in petajoules", title = "Quarterly estimates of Gas production in Australia")
+
+
+
+```
+
+We don't see a constant peak but rather an exponential trend for Australia Gas production. So,the multiplicative seasonality is more suitable.
+
+```{r mychunck11, fig.width = 10, fig.height = 10}
+
+# Short_hand 	Method
+# (N,N) 	Simple exponential smoothing
+# (A,N) 	Holt’s linear method
+# (Ad,N) 	Additive damped trend method
+# (A,A) 	Additive Holt-Winters’ method
+# (A,M) 	Multiplicative Holt-Winters’ method
+# (Ad,M) 	Holt-Winters’ damped method 
+
+
+fit <- aus1 %>%
+  #stretch_tsibble(.init = 10) %>%
+  model(
+        #additive = ETS(Gas ~ error("A") + trend("A") +
+        #                                        season("A")),
+    multiplicative = ETS(Gas ~ error("M") + trend("A") +
+                                                season("M")),
+    additive_damped_simple = ETS(Gas ~ error("A") + trend("Ad") +
+                                                season("N")),
+    multiplicative_damped_simple = ETS(Gas ~ error("M") + trend("Ad") +
+                                                season("M"))
+    
+    #SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    #Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    #Damped = ETS(Gas ~ error("A") + trend("Ad") +                   season("N"))
+  ) %>%
+  forecast(h = 10) #%>%  accuracy(china)
+
+fit %>%
+  autoplot(aus1, level = NULL)+ 
+      labs(y = "Gas production in petajoules", title = "Quarterly estimates of Gas production in Australia")
+
+```
+
+We clearly see that the multiplicative seasonality is suitable for the forecasting of Australia Gas production.
+
+## Exercise 8. Recall your retail time series data (from Exercise 8 in Section 2.10).
+
+a-Why is multiplicative seasonality necessary for this series?
+```{r mychunck12s, fig.width = 10, fig.height = 10}
+
+view(aus_retail)
+#head(aus_retail)
+??aus_retail
+set.seed(1278)
+myseries <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+
+#aus8 <- aus_retail %>% 
+#                   filter(Industry == "Takeaway food services")
+myseries %>%
+     autoplot(Turnover)+  
+     labs(y = "Retail turnover in $Million AU", title = "	Australian Retail Trade Turnover")
+
+```
+
+We don't see a constant peak, therefore, the multiplicative seasonality is more suitable.
+
+b-Apply Holt-Winters’ multiplicative method to the data. Experiment with making the trend damped.
+```{r mychunck13, fig.width = 10, fig.height = 10}
+
+fit <- myseries %>%
+  #stretch_tsibble(.init = 10) %>%
+  model(
+        additive = ETS(Turnover ~ error("A") + trend("A") +
+                                                season("A")),
+    multiplicative = ETS(Turnover ~ error("M") + trend("A") +
+                                                season("M")),
+    #additive_damped_simple = ETS(Gas ~ error("A") + trend("Ad") +
+     #                                           season("N")),
+    multiplicative_damped_simple = ETS(Turnover ~ error("M") + trend("Ad") +
+                                                season("M"))
+    
+    #SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    #Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    #Damped = ETS(Gas ~ error("A") + trend("Ad") +                   season("N"))
+  ) %>%
+  forecast(h = 10) #%>%  accuracy(china)
+
+fit %>%
+  autoplot(myseries, level = NULL)+ 
+     labs(y = "Retail turnover in $Million AU", title = "	Australian Retail Trade Turnover")
+
+
+```
+
+c-Compare the RMSE of the one-step forecasts from the two methods. Which do you prefer?
+
+```{r mychunck14, fig.width = 10, fig.height = 10}
+
+series1 <- myseries %>%
+  stretch_tsibble(.init = 10) %>%
+  model(
+        additive = ETS(Turnover ~ error("A") + trend("A") +
+                                                season("A")),
+    multiplicative = ETS(Turnover ~ error("M") + trend("A") +
+                                                season("M")),
+    #additive_damped_simple = ETS(Gas ~ error("A") + trend("Ad") +
+     #                                           season("N")),
+    multiplicative_damped_simple = ETS(Turnover ~ error("M") + trend("Ad") +
+                                                season("M"))
+    
+    #SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    #Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    #Damped = ETS(Gas ~ error("A") + trend("Ad") +                   season("N"))
+  ) %>%
+  forecast(h = 1) %>%
+                   accuracy(myseries)
+series1
+
+```
+
+d- Check that the residuals from the best method look like white noise.
+```{r mychunck15, fig.width = 10, fig.height = 10}
+
+ myseries %>%
+ # stretch_tsibble(.init = 10) %>%
+  model(
+       # additive = ETS(Turnover ~ error("A") + trend("A") +
+        #                                        season("A")),
+    #multiplicative = ETS(Turnover ~ error("M") + trend("A") +
+    #                                            season("M")),
+    #additive_damped_simple = ETS(Gas ~ error("A") + trend("Ad") +
+     #                                           season("N")),
+    multiplicative_damped_simple = ETS(Turnover ~ error("M") + trend("Ad") +
+                                                season("M"))
+
+    #SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    #Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    #Damped = ETS(Gas ~ error("A") + trend("Ad") +                   season("N"))
+  ) %>%
+  gg_tsresiduals()
+
+#checkresiduals()
+
+```
+
+white noise distribution is any distribution that has:
+
+    Zero mean
+    A constant variance/standard deviation (does not change over time)
+    Zero autocorrelation at all lags
+    
+
+e-Now find the test set RMSE, while training the model to the end of 2010. Can you beat the seasonal naïve approach from Exercise 7 in Section 5.11?
+
+```{r mychunck17d, fig.width = 10, fig.height = 10}
+
+
+train <- myseries %>%
+                  filter(year(Month)<=2010)
+
+
+fit_train <- train %>%
+  #stretch_tsibble(.init = 10) %>%
+  model(
+        #additive = ETS(Turnover ~ error("A") + trend("A") +
+        #                                        season("A")),
+    multiplicative = ETS(Turnover ~ error("M") + trend("A") +
+                                                season("M")),
+    #additive_damped_simple = ETS(Gas ~ error("A") + trend("Ad") +
+     #                                           season("N")),
+    multiplicative_damped_simple = ETS(Turnover ~ error("M") + trend("Ad") +
+                                                season("M"))
+    
+    #SES = ETS(GDP ~ error("A") + trend("N") + season("N")),
+    #Holt = ETS(GDP ~ error("A") + trend("A") + season("N")),
+    #Damped = ETS(Gas ~ error("A") + trend("Ad") +                   season("N"))
+  ) %>%
+  forecast(h = 10) #%>%  accuracy(china)
+
+fit_train %>%
+  autoplot(train, level = NULL)+ 
+     labs(y = "Retail turnover in $Million AU", title = "	Australian Retail Trade Turnover")
+
+
+test <- myseries %>%
+                  filter(year(Month)>2010)
+
+
+
+```
+
+
+```{r mychunck18a, fig.width = 10, fig.height = 10}
+fit1_train <- train %>%
+                    model(SNAIVE(Turnover))
+fc <- fit1_train %>%
+  forecast(new_data = anti_join(myseries, train))
+
+fit_train %>%
+  accuracy(myseries)
+
+cat("Improvement")
+
+fit1_train %>%
+          accuracy()
+
+```
+
+## Exercise 9. For the same retail data, try an STL decomposition applied to the Box-Cox transformed series, followed by ETS on the seasonally adjusted data. How does that compare with your best previous forecasts on the test set?
+
+```{r mychunck19s, fig.width = 10, fig.height = 10}
+
+dcmp <- train %>%
+  model(stl = STL(Turnover))
+components(dcmp)
+
+components(dcmp) %>% autoplot()
+
+```
+
+```{r mychunck20, fig.width = 10, fig.height = 10}
+min(myseries$Month)
+
+#train <- ts(as.vector(train), start = c(1982, 4), end = c(2010,12), frequency = 12 )
+trains <- ts(data=train$Turnover, frequency=12)
+
+# fit_train1 <-trains %>%
+#                   stlm(
+#                   s.window = 13,
+#                   robust = TRUE,
+#                    method = "ets",
+#                 lambda1 = BoxCox.lambda(trains)
+#   ) %>%
+#   forecast(
+#     h = 10,
+#     lambda1 = BoxCox.lambda(trains)
+#     )
+#fit_train1 %>%
+#  accuracy()
+
+```
+something wrong with lambdag
+
+
