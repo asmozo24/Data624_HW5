@@ -63,7 +63,7 @@ set.seed(34332)
 ```
 
 [Github Link](https://github.com/asmozo24/Data624_HW5)
-[Web Link](https://rpubs.com/amekueko/814927)
+[Web Link](https://rpubs.com/amekueko/820388)
 
 ## Exercise 1. Consider the the number of pigs slaughtered in Victoria, available in the aus_livestock dataset.
 
